@@ -14,110 +14,67 @@ function (_get_directories result path)
     set (result ${directories})
 endfunction()
 
-function (_validate_option key value)
-    string (TOUPPER ${key} key)
-
-    # check for values for TARGET_TYPE
-    if (${key} STREQUAL "TARGET_TYPE")
-        string (TOUPPER ${value} value)
-
-        set (
-            AVAILABLE_TARGET_TYPES
-            "EXEC"
-            "SHARED"
-            "STATIC"
-        )
-
-        if (NOT value IN_LIST AVAILABLE_TARGET_TYPES)
-            message (FATAL_ERROR "Unsupported TARGET_TYPE value: '${value}'")
+function (_evaluate_path directory path)
+    if (EXISTS ${CMAKE_CURRENT_LIST_DIR}/${directory})
+        set (${path} ${CMAKE_CURRENT_LIST_DIR}/${directory} PARENT_SCOPE)
+    else ()
+        if (EXISTS ${directory})
+            set (${path} ${directory} PARENT_SCOPE)
+        else ()
+            message (FATAL_ERROR "Path for directory target not found '${directory}'")
         endif ()
+    endif ()
+endfunction()
 
-        set (target_type "${value}" PARENT_SCOPE)
-        return()
-    endif()
+function (_glob_headers path headers)
+    file (GLOB_RECURSE values
+        ${path}/*.h
+        ${path}/*.hpp
+        ${path}/*.hxx
+    )
 
-    if (${key} STREQUAL "LIBRARIES")
-        separate_arguments(${value})
-        list (LENGTH value length)
+    set (${headers} ${values} PARENT_SCOPE)
+endfunction()
 
-        if (NOT length EQUAL 0)
-            list (APPEND deps ${value})
-            set (public_dependencies "${deps}" PARENT_SCOPE)
-        endif ()
+function (_glob_sources path sources)
+    file (GLOB_RECURSE values
+        ${path}/*.c
+        ${path}/*.cpp
+        ${path}/*.cxx
+    )
 
-        return ()
-    endif()
+    set (${sources} ${values} PARENT_SCOPE)
+endfunction()
 
-    message (FATAL_ERROR "Unsupported option name: ${key}")
+function (_add_target_dir target_name path)
 
-endfunction ()
+    # evaluate arguments
+    set(options "")
+    set(values "")
+    set(lists PUBLIC PRIVATE)
 
-function (add_cmake_dir path)
+    cmake_parse_arguments(LINK "${options}" "${values}" "${lists}" ${ARGN})
 
-    # use path name as target_name
-    get_filename_component (target_name ${path} NAME)
-    message (STATUS "Adding '${path}' as '${target_name}'")
-
-    # setup default variables
-    set (target_type "SHARED")
-
-    # read OPTIONS file
-    if (EXISTS ${path}/OPTIONS)
-        file(STRINGS ${path}/OPTIONS file_content)
-
-        foreach(line ${file_content})
-            
-            # Strip spaces
-            string(STRIP ${line} line)
-
-            # Find variable name
-            string(REGEX MATCH "^[^:]+" key ${line})
-            # Find the value
-            string(REPLACE "${key}:" "" value ${line})
-
-            # bypass invalid lines
-            if ("${key}" STREQUAL "" OR "${value}" STREQUAL "")
-                continue()
-            endif()
-
-            # Strip key spaces
-            string(STRIP ${key} key)
-            # Strip value spaces
-            string(STRIP ${value} value)
-            # Validate options
-            _validate_option (${key} ${value})
-
-            # Set the variable
-            set(${key} "${value}")
-        endforeach()
-    endif()
+    target_link_libraries (${target_name} PUBLIC ${LINK_PUBLIC} PRIVATE ${LINK_PRIVATE})
 
     # read public include folder
     if (EXISTS ${path}/include)
         set (public_header_path ${path}/include)
+        _glob_headers (${public_header_path} public_headers)
 
-        file (GLOB_RECURSE public_headers
-            ${public_header_path}/*.h
-            ${public_header_path}/*.hpp
-            ${public_header_path}/*.hxx
-        )
+        target_include_directories (${target_name} PUBLIC ${public_header_path})
+        target_sources (${target_name} PUBLIC ${public_headers})
     endif()
 
     # read source files and private include folder
     if (EXISTS ${path}/source)
         set (source_path ${path}/source)
 
-        file (GLOB_RECURSE source_files
-            ${source_path}/*.c
-            ${source_path}/*.cpp
-            ${source_path}/*.cxx
-        )
+        _glob_headers (${source_path} private_headers)
+        _glob_sources (${source_path} source_files)
 
-        file (GLOB_RECURSE private_headers 
-            ${source_path}/*.h
-            ${source_path}/*.hpp
-            ${source_path}/*.hxx
-        )
+        target_include_directories (${target_name} PRIVATE ${source_files})
+        target_sources (${target_name} PRIVATE ${private_headers} ${source_files})
     endif()
 
     # read submodules
@@ -125,55 +82,39 @@ function (add_cmake_dir path)
         _get_directories (modules ${path})
 
         foreach (mod ${modules}})
-            add_cmake_dir (${mod})
+            add_library_dir (${mod} STATIC)
         endforeach()
     endif()
 
-    # check for source_files
-    list (LENGTH source_files length)
-
-    if (length EQUAL 0)
-        add_library(${target_name} INTERFACE)
-
-        # add include library paths
-        target_include_directories(
-            ${target_name}
-            INTERFACE
-                ${public_header_path}
-                ${private_header_path})
-
-        target_sources(
-            ${target_name}
-            INTERFACE
-                ${public_header_path}
-                ${private_header_path})
-    else()
-        # if no target type assume library (shared)
-        if (target_type STREQUAL "EXEC")
-            add_executable(${target_name} ${source_files} ${private_headers} ${public_headers})
-        else ()
-            add_library(${target_name} ${target_type} ${source_files} ${private_headers} ${public_headers})
-        endif ()
-
-        # add include library paths
-        target_include_directories(
-            ${target_name}
-            PUBLIC
-                ${public_header_path}
-            PRIVATE
-                ${source_path}
-        )
-    endif ()
-
     # include cmakelists
     if (EXISTS ${path}/CMakeLists.txt)
-        add_subdirectory(${path})
+        include (${path}/CMakeLists.txt)
     endif()
 
-    # add dependencies
-    target_link_libraries (${target_name}
-        PUBLIC ${public_dependencies}
-        PRIVATE ${private_dependencies}
-        INTERFACE ${interface_dependencies})
-
 endfunction ()
+
+function (add_executable_dir directory)
+
+    _evaluate_path (${directory} path)
+
+    # use path name as target_name
+    get_filename_component (target_name ${path} NAME)
+
+    add_executable(${target_name})
+
+    _add_target_dir (${target_name} ${path} ${ARGN})
+
+endfunction()
+
+function (add_library_dir directory target_type)
+
+    _evaluate_path (${directory} path)
+
+    # use path name as target_name
+    get_filename_component (target_name ${path} NAME)
+
+    add_library (${target_name} ${target_type})
+
+    _add_target_dir (${target_name} ${path} ${ARGN})
+
+endfunction()
