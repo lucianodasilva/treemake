@@ -1,17 +1,16 @@
 cmake_minimum_required (VERSION 3.12)
 
-function (_get_directories result path)
+function (_get_directories path result)
     file (GLOB children RELATIVE ${path} ${path}/*)
-
     set (directories "")
 
     foreach (child ${children})
         if (IS_DIRECTORY ${path}/${child})
-            list(APPEND directories ${path}/${child})
+            list(APPEND directories "${path}/${child}")
         endif()
     endforeach()
 
-    set (result ${directories})
+    set (${result} ${directories} PARENT_SCOPE)
 endfunction()
 
 function (_evaluate_path directory path)
@@ -79,10 +78,13 @@ function (_add_target_dir target_name path)
 
     # read submodules
     if (EXISTS ${path}/modules)
-        _get_directories (modules ${path})
+        _get_directories (${path}/modules modules)
 
-        foreach (mod ${modules}})
+        foreach (mod ${modules})
             add_library_dir (${mod} STATIC)
+            get_filename_component (mod_name ${mod} NAME)
+
+            target_link_libraries (${target_name} PRIVATE ${mod_name})
         endforeach()
     endif()
 
