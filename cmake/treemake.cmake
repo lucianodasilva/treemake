@@ -72,7 +72,7 @@ function (_add_target_dir target_name path)
         _glob_headers (${source_path} private_headers)
         _glob_sources (${source_path} source_files)
 
-        target_include_directories (${target_name} PRIVATE ${source_files})
+        target_include_directories (${target_name} PRIVATE ${source_path})
         target_sources (${target_name} PRIVATE ${private_headers} ${source_files})
     endif()
 
