@@ -1,2 +1,2 @@
 # treemake
-CMake Script to automatically generate cmake targets from folder layout rules
+CMake Script to automatically configure cmake targets from folder layout rules
