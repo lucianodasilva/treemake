@@ -45,6 +45,59 @@ function (_glob_sources glob path sources)
     set (${sources} ${values} PARENT_SCOPE)
 endfunction()
 
+function (_add_target_dir_tests target_name path)
+    # enable loading executables as libraries
+    set_target_properties(
+        ${target_name}
+        PROPERTIES
+        ENABLE_EXPORTS TRUE
+    )
+
+    # is it "short test target"
+    _glob_sources (GLOB ${path}/tests test_source_files)
+    list(LENGTH test_source_files test_source_files_count)
+
+    if (test_source_files_count EQUAL 0)
+        _get_directories (${path}/tests tests)
+
+        foreach (test ${tests})
+            add_executable_dir (
+                ${test}
+                PUBLIC ${_public_test_link_libraries}
+                PRIVATE ${_private_test_link_libraries} ${target_name}
+            )
+        
+            get_filename_component (test_name ${test} NAME)
+            
+            set_target_properties(
+                ${test_name}
+                PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+            )
+
+            add_test (NAME ${test_name} COMMAND ${test_name} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+        endforeach()
+    else ()
+        set (test_name test_${target_name})
+        add_executable (${test_name})
+
+        _add_short_target_dir (
+            ${test_name}
+            ${path}/tests
+            PUBLIC ${_public_test_link_libraries}
+            PRIVATE ${_private_test_link_libraries} ${target_name}
+        )
+
+        set_target_properties(
+            ${test_name}
+            PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+        )
+
+        add_test (NAME ${test_name} COMMAND ${test_name} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+    endif ()
+endfunction ()
+
 function (_add_short_target_dir target_name path)
 
     # evaluate arguments
@@ -107,50 +160,15 @@ function (_add_target_dir target_name path)
         foreach (mod ${modules})
             add_library_dir (${mod} STATIC)
             get_filename_component (mod_name ${mod} NAME)
-
+            
             target_link_libraries (${target_name} PRIVATE ${mod_name})
+        )
         endforeach()
     endif()
 
     # read tests
     if (EXISTS ${path}/tests)
-        # enable loading executables as libraries
-        set_target_properties(
-            ${target_name}
-            PROPERTIES
-            ENABLE_EXPORTS TRUE
-        )
-
-        # is it "short test target"
-        _glob_sources (GLOB ${path}/tests test_source_files)
-        list(LENGTH test_source_files test_source_files_count)
-
-        if (test_source_files_count EQUAL 0)
-            _get_directories (${path}/tests tests)
-
-            foreach (test ${tests})
-                add_executable_dir (
-                    ${test}
-                    PUBLIC ${_public_test_link_libraries}
-                    PRIVATE ${_private_test_link_libraries} ${target_name}
-                )
-            
-                get_filename_component (test_name ${test} NAME)
-                add_test (${test_name} ${test_name})
-            endforeach()
-        else ()
-            set (test_name test_${target_name})
-            add_executable (${test_name})
-
-            _add_short_target_dir (
-                ${test_name}
-                ${path}/tests
-                PUBLIC ${_public_test_link_libraries}
-                PRIVATE ${_private_test_link_libraries} ${target_name}
-            )
-        
-            add_test (${test_name} ${test_name})
-        endif ()
+        _add_target_dir_tests (${target_name} ${path})
     endif()
 
     # include cmakelists
