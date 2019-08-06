@@ -25,8 +25,8 @@ function (_evaluate_path directory path)
     endif ()
 endfunction()
 
-function (_glob_headers path headers)
-    file (GLOB_RECURSE values
+function (_glob_headers glob path headers)
+    file (${glob} values
         ${path}/*.h
         ${path}/*.hpp
         ${path}/*.hxx
@@ -35,8 +35,8 @@ function (_glob_headers path headers)
     set (${headers} ${values} PARENT_SCOPE)
 endfunction()
 
-function (_glob_sources path sources)
-    file (GLOB_RECURSE values
+function (_glob_sources glob path sources)
+    file (${glob} values
         ${path}/*.c
         ${path}/*.cpp
         ${path}/*.cxx
@@ -44,6 +44,30 @@ function (_glob_sources path sources)
 
     set (${sources} ${values} PARENT_SCOPE)
 endfunction()
+
+function (_add_short_target_dir target_name path)
+
+    # evaluate arguments
+    set(options "")
+    set(values "")
+    set(lists PUBLIC PRIVATE)
+
+    cmake_parse_arguments(LINK "${options}" "${values}" "${lists}" ${ARGN})
+
+    target_link_libraries (${target_name} PUBLIC ${LINK_PUBLIC} PRIVATE ${LINK_PRIVATE})
+
+    _glob_headers (GLOB_RECURSE ${path} private_headers)
+    _glob_sources (GLOB_RECURSE ${path} source_files)
+
+    target_include_directories (${target_name} PRIVATE ${path})
+    target_sources (${target_name} PRIVATE ${private_headers} ${source_files})
+
+    # include cmakelists
+    if (EXISTS ${path}/CMakeLists.txt)
+        include (${path}/CMakeLists.txt)
+    endif()
+
+endfunction ()
 
 function (_add_target_dir target_name path)
 
@@ -59,7 +83,7 @@ function (_add_target_dir target_name path)
     # read public include folder
     if (EXISTS ${path}/include)
         set (public_header_path ${path}/include)
-        _glob_headers (${public_header_path} public_headers)
+        _glob_headers (GLOB_RECURSE ${public_header_path} public_headers)
 
         target_include_directories (${target_name} PUBLIC ${public_header_path})
         target_sources (${target_name} PUBLIC ${public_headers})
@@ -69,8 +93,8 @@ function (_add_target_dir target_name path)
     if (EXISTS ${path}/source)
         set (source_path ${path}/source)
 
-        _glob_headers (${source_path} private_headers)
-        _glob_sources (${source_path} source_files)
+        _glob_headers (GLOB_RECURSE ${source_path} private_headers)
+        _glob_sources (GLOB_RECURSE ${source_path} source_files)
 
         target_include_directories (${target_name} PRIVATE ${source_path})
         target_sources (${target_name} PRIVATE ${private_headers} ${source_files})
@@ -90,7 +114,6 @@ function (_add_target_dir target_name path)
 
     # read tests
     if (EXISTS ${path}/tests)
-
         # enable loading executables as libraries
         set_target_properties(
             ${target_name}
@@ -98,18 +121,36 @@ function (_add_target_dir target_name path)
             ENABLE_EXPORTS TRUE
         )
 
-        _get_directories (${path}/tests tests)
+        # is it "short test target"
+        _glob_sources (GLOB ${path}/tests test_source_files)
+        list(LENGTH test_source_files test_source_files_count)
 
-        foreach (test ${tests})
-            add_executable_dir (
-                ${test}
+        if (test_source_files_count EQUAL 0)
+            _get_directories (${path}/tests tests)
+
+            foreach (test ${tests})
+                add_executable_dir (
+                    ${test}
+                    PUBLIC ${_public_test_link_libraries}
+                    PRIVATE ${_private_test_link_libraries} ${target_name}
+                )
+            
+                get_filename_component (test_name ${test} NAME)
+                add_test (${test_name} ${test_name})
+            endforeach()
+        else ()
+            set (test_name test_${target_name})
+            add_executable (${test_name})
+
+            _add_short_target_dir (
+                ${test_name}
+                ${path}/tests
                 PUBLIC ${_public_test_link_libraries}
                 PRIVATE ${_private_test_link_libraries} ${target_name}
             )
         
-            get_filename_component (test_name ${test} NAME)
             add_test (${test_name} ${test_name})
-        endforeach()
+        endif ()
     endif()
 
     # include cmakelists
@@ -128,7 +169,14 @@ function (add_executable_dir directory)
 
     add_executable(${target_name})
 
-    _add_target_dir (${target_name} ${path} ${ARGN})
+    _glob_sources (GLOB ${path} source_files)
+    list(LENGTH source_files source_files_count)
+
+    if (source_files_count EQUAL 0)
+        _add_target_dir (${target_name} ${path} ${ARGN})
+    else ()
+        _add_short_target_dir (${target_name} ${path} ${ARGN})
+    endif()
 
 endfunction()
 
@@ -141,7 +189,14 @@ function (add_library_dir directory target_type)
 
     add_library (${target_name} ${target_type})
 
-    _add_target_dir (${target_name} ${path} ${ARGN})
+    _glob_sources (GLOB ${path} source_files)
+    list(LENGTH source_files source_files_count)
+
+    if (source_files_count EQUAL 0)
+        _add_target_dir (${target_name} ${path} ${ARGN})
+    else ()
+        _add_short_target_dir (${target_name} ${path} ${ARGN})
+    endif()
 
 endfunction()
 
