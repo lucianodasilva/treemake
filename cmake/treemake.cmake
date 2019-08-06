@@ -88,6 +88,30 @@ function (_add_target_dir target_name path)
         endforeach()
     endif()
 
+    # read tests
+    if (EXISTS ${path}/tests)
+
+        # enable loading executables as libraries
+        set_target_properties(
+            ${target_name}
+            PROPERTIES
+            ENABLE_EXPORTS TRUE
+        )
+
+        _get_directories (${path}/tests tests)
+
+        foreach (test ${tests})
+            add_executable_dir (
+                ${test}
+                PUBLIC ${_public_test_link_libraries}
+                PRIVATE ${_private_test_link_libraries} ${target_name}
+            )
+        
+            get_filename_component (test_name ${test} NAME)
+            add_test (${test_name} ${test_name})
+        endforeach()
+    endif()
+
     # include cmakelists
     if (EXISTS ${path}/CMakeLists.txt)
         include (${path}/CMakeLists.txt)
@@ -119,4 +143,15 @@ function (add_library_dir directory target_type)
 
     _add_target_dir (${target_name} ${path} ${ARGN})
 
+endfunction()
+
+function (set_test_dir_link_libraries)
+    set(options "")
+    set(values "")
+    set(lists PUBLIC PRIVATE)
+
+    cmake_parse_arguments(LINK "${options}" "${values}" "${lists}" ${ARGN})
+
+    set (_public_test_link_libraries ${LINK_PUBLIC} PARENT_SCOPE)
+    set (_private_test_link_libraries ${LINK_PRIVATE} PARENT_SCOPE)
 endfunction()
