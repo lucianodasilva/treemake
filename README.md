@@ -23,7 +23,9 @@ add_library_dir (<directory> [ SHARED | STATIC ]
 
 All targets are named by their immediately containing folder.
 
-Target folder self configure by following a small set of folder management rules to infer properties about themselves.
+Target folder self configure by following a small set of sub folder management rules to infer properties about themselves.
+
+The supported meaningful subfolders are as follows:
 
 ### **[include]**
 Include folders are interpreted as containing header files mean to be exported to consuming targets.
