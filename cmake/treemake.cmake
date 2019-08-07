@@ -162,7 +162,6 @@ function (_add_target_dir target_name path)
             get_filename_component (mod_name ${mod} NAME)
             
             target_link_libraries (${target_name} PRIVATE ${mod_name})
-        )
         endforeach()
     endif()
 
