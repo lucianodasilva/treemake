@@ -5,7 +5,7 @@ CMake Script to automatically (lazily) configure cmake targets from folder layou
 
 ## Root Targets
 
-Root folders and their respective target types are defined by calling de appropriate function for the required target type.
+Root folders and their respective target types are defined by calling the appropriate function for the required target type.
 
 Both **[executables]** and **[libraries]** are supported as explicit targets by using the following cmake functions:
 
