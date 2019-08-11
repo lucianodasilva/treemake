@@ -109,6 +109,12 @@ function (_add_short_target_dir target_name path)
 
     target_link_libraries (${target_name} PUBLIC ${LINK_PUBLIC} PRIVATE ${LINK_PRIVATE})
 
+	set_target_properties (
+		${target_name}
+		PROPERTIES
+		${_target_dir_properties}
+	)
+
     _glob_headers (GLOB_RECURSE ${path} private_headers)
     _glob_sources (GLOB_RECURSE ${path} source_files)
 
@@ -132,6 +138,12 @@ function (_add_target_dir target_name path)
     cmake_parse_arguments(LINK "${options}" "${values}" "${lists}" ${ARGN})
 
     target_link_libraries (${target_name} PUBLIC ${LINK_PUBLIC} PRIVATE ${LINK_PRIVATE})
+
+	set_target_properties (
+		${target_name}
+		PROPERTIES
+		${_target_dir_properties}
+	)
 
     # read public include folder
     if (EXISTS ${path}/include)
@@ -226,4 +238,14 @@ function (set_test_dir_link_libraries)
 
     set (_public_test_link_libraries ${LINK_PUBLIC} PARENT_SCOPE)
     set (_private_test_link_libraries ${LINK_PRIVATE} PARENT_SCOPE)
+endfunction()
+
+function (set_target_dir_properties)
+    set(options "")
+    set(values "")
+    set(lists PROPERTIES)
+
+    cmake_parse_arguments(TARGET_DIR "${options}" "${values}" "${lists}" ${ARGN})
+
+    set (_target_dir_properties ${TARGET_DIR_PROPERTIES} PARENT_SCOPE)
 endfunction()
