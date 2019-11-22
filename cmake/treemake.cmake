@@ -1,5 +1,14 @@
 cmake_minimum_required (VERSION 3.12)
 
+function (_push_target_name target_name)
+
+    set (_current_target_name ${target_name} PARENT_SCOPE)
+endfunction()
+
+function (_pop_target_name)
+
+endfunction()
+
 function (_get_directories path result)
     file (GLOB children RELATIVE ${path} ${path}/*)
     set (directories "")
@@ -45,7 +54,7 @@ function (_glob_sources glob path sources)
     set (${sources} ${values} PARENT_SCOPE)
 endfunction()
 
-function (_add_target_dir_tests target_name path)
+function (_add_target_dir_test target_name path)
     # enable loading executables as libraries
     set_target_properties(
         ${target_name}
@@ -54,11 +63,11 @@ function (_add_target_dir_tests target_name path)
     )
 
     # is it "short test target"
-    _glob_sources (GLOB ${path}/tests test_source_files)
+    _glob_sources (GLOB ${path}/test test_source_files)
     list(LENGTH test_source_files test_source_files_count)
 
     if (test_source_files_count EQUAL 0)
-        _get_directories (${path}/tests tests)
+        _get_directories (${path}/test tests)
 
         foreach (test ${tests})
             add_executable_dir (
@@ -72,13 +81,13 @@ function (_add_target_dir_tests target_name path)
             set_target_properties(
                 ${test_name}
                 PROPERTIES
-                RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+                RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test
             )
 
-            add_test (NAME ${test_name} COMMAND ${test_name} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+            add_test (NAME ${test_name} COMMAND ${test_name} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/test)
         endforeach()
     else ()
-        set (test_name test_${target_name})
+        set (test_name ${target_name}_test)
         add_executable (${test_name})
 
         _add_short_target_dir (
@@ -91,10 +100,10 @@ function (_add_target_dir_tests target_name path)
         set_target_properties(
             ${test_name}
             PROPERTIES
-            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/tests
+            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/test
         )
 
-        add_test (NAME ${test_name} COMMAND ${test_name} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/tests)
+        add_test (NAME ${test_name} COMMAND ${test_name} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/test)
     endif ()
 endfunction ()
 
@@ -108,12 +117,6 @@ function (_add_short_target_dir target_name path)
     cmake_parse_arguments(LINK "${options}" "${values}" "${lists}" ${ARGN})
 
     target_link_libraries (${target_name} PUBLIC ${LINK_PUBLIC} PRIVATE ${LINK_PRIVATE})
-
-	set_target_properties (
-		${target_name}
-		PROPERTIES
-		${_target_dir_properties}
-	)
 
     _glob_headers (GLOB_RECURSE ${path} private_headers)
     _glob_sources (GLOB_RECURSE ${path} source_files)
@@ -139,12 +142,6 @@ function (_add_target_dir target_name path)
 
     target_link_libraries (${target_name} PUBLIC ${LINK_PUBLIC} PRIVATE ${LINK_PRIVATE})
 
-	set_target_properties (
-		${target_name}
-		PROPERTIES
-		${_target_dir_properties}
-	)
-
     # read public include folder
     if (EXISTS ${path}/include)
         set (public_header_path ${path}/include)
@@ -157,7 +154,11 @@ function (_add_target_dir target_name path)
     # read source files and private include folder
     if (EXISTS ${path}/source)
         set (source_path ${path}/source)
+    elseif(EXISTS ${path}/src)
+        set (source_path ${path}/src)
+    endif ()
 
+    if (source_path)
         _glob_headers (GLOB_RECURSE ${source_path} private_headers)
         _glob_sources (GLOB_RECURSE ${source_path} source_files)
 
@@ -178,8 +179,8 @@ function (_add_target_dir target_name path)
     endif()
 
     # read tests
-    if (EXISTS ${path}/tests)
-        _add_target_dir_tests (${target_name} ${path})
+    if (EXISTS ${path}/test)
+        _add_target_dir_test (${target_name} ${path})
     endif()
 
     # include cmakelists

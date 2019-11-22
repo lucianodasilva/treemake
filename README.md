@@ -35,7 +35,7 @@ It is equivalent to calling:
 target_include_directories (<target> PUBLIC <target_path>/include)
 ```
 
-### **[source]**
+### **[source/src]**
 Source folders are interpreted as containing headers and source files to be used internally.
 
 It is equivalent to calling:
@@ -55,8 +55,8 @@ add_library_dir (<path> STATIC)
 target_link_libraries (<containing_target> PRIVATE <added_library>)
 ```
 
-### **[tests]**
-When **tests** folders are found, their subdirectories are automatically loaded as executables, privately linking the containing target.
+### **[test]**
+When **test** folders are found, their subdirectories are automatically loaded as executables, privately linking the containing target.
 
 It is equivalent to calling (per contained folder):
 ```cmake
