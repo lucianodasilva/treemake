@@ -1,12 +1,13 @@
 cmake_minimum_required (VERSION 3.12)
 
-function (_push_target_name target_name)
-
-    set (_current_target_name ${target_name} PARENT_SCOPE)
+function (dir_target_name target_name)
+    set (${target_name} ${_current_dir_target_name})
 endfunction()
 
-function (_pop_target_name)
-
+function (_include_for_target cmake_file target_name)
+    message (STATUS "including file: ${cmake_file}")
+    set (_current_target_name ${target_name} PARENT_SCOPE)
+    include (${cmake_file})
 endfunction()
 
 function (_get_directories path result)
@@ -85,6 +86,7 @@ function (_add_target_dir_test target_name path)
             )
 
             add_test (NAME ${test_name} COMMAND ${test_name} WORKING_DIRECTORY ${CMAKE_BINARY_DIR}/test)
+
         endforeach()
     else ()
         set (test_name ${target_name}_test)
@@ -92,7 +94,7 @@ function (_add_target_dir_test target_name path)
 
         _add_short_target_dir (
             ${test_name}
-            ${path}/tests
+            ${path}/test
             PUBLIC ${_public_test_link_libraries}
             PRIVATE ${_private_test_link_libraries} ${target_name}
         )
@@ -108,7 +110,6 @@ function (_add_target_dir_test target_name path)
 endfunction ()
 
 function (_add_short_target_dir target_name path)
-
     # evaluate arguments
     set(options "")
     set(values "")
@@ -126,13 +127,11 @@ function (_add_short_target_dir target_name path)
 
     # include cmakelists
     if (EXISTS ${path}/CMakeLists.txt)
-        include (${path}/CMakeLists.txt)
+        _include_for_target (${path}/CMakeLists.txt ${target_name})
     endif()
-
 endfunction ()
 
 function (_add_target_dir target_name path)
-
     # evaluate arguments
     set(options "")
     set(values "")
@@ -185,13 +184,11 @@ function (_add_target_dir target_name path)
 
     # include cmakelists
     if (EXISTS ${path}/CMakeLists.txt)
-        include (${path}/CMakeLists.txt)
+        _include_for_target (${path}/CMakeLists.txt ${target_name})
     endif()
-
 endfunction ()
 
 function (add_executable_dir directory)
-
     _evaluate_path (${directory} path)
 
     # use path name as target_name
@@ -207,11 +204,9 @@ function (add_executable_dir directory)
     else ()
         _add_short_target_dir (${target_name} ${path} ${ARGN})
     endif()
-
 endfunction()
 
 function (add_library_dir directory target_type)
-
     _evaluate_path (${directory} path)
 
     # use path name as target_name
@@ -227,26 +222,4 @@ function (add_library_dir directory target_type)
     else ()
         _add_short_target_dir (${target_name} ${path} ${ARGN})
     endif()
-
-endfunction()
-
-function (set_test_dir_link_libraries)
-    set(options "")
-    set(values "")
-    set(lists PUBLIC PRIVATE)
-
-    cmake_parse_arguments(LINK "${options}" "${values}" "${lists}" ${ARGN})
-
-    set (_public_test_link_libraries ${LINK_PUBLIC} PARENT_SCOPE)
-    set (_private_test_link_libraries ${LINK_PRIVATE} PARENT_SCOPE)
-endfunction()
-
-function (set_target_dir_properties)
-    set(options "")
-    set(values "")
-    set(lists PROPERTIES)
-
-    cmake_parse_arguments(TARGET_DIR "${options}" "${values}" "${lists}" ${ARGN})
-
-    set (_target_dir_properties ${TARGET_DIR_PROPERTIES} PARENT_SCOPE)
 endfunction()
